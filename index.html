@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Puzzle Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .game-canvas {
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .level-card {
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .level-card.active {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            transform: scale(1.05);
+        }
+        
+        .level-card.completed {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            background-size: 400% 400%;
+            animation: gradient 3s ease infinite;
+        }
+        
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        
+        .tile {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .tile:hover {
+            transform: scale(1.05);
+        }
+        
+        .empty-tile {
+            background: rgba(255, 255, 255, 0.1) !important;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 min-h-screen">
+    <div class="container mx-auto px-4 py-6">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl md:text-6xl font-bold text-white mb-2">
+                <i class="fas fa-puzzle-piece text-yellow-400"></i>
+                Number Puzzle
+            </h1>
+            <p class="text-gray-300 text-lg">Challenge your mind with this sliding puzzle game!</p>
+        </div>
+
+        <!-- Game Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <!-- Timer -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-white mb-1" id="timer">05:00</div>
+                <div class="text-gray-300 text-sm">Time Remaining</div>
+            </div>
+            
+            <!-- Score -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-yellow-400 mb-1" id="score">0</div>
+                <div class="text-gray-300 text-sm">Score</div>
+            </div>
+            
+            <!-- Moves -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-green-400 mb-1" id="moves">0</div>
+                <div class="text-gray-300 text-sm">Moves</div>
+            </div>
+        </div>
+
+        <!-- IQ Progress Bar -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 mb-8">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-white font-semibold">IQ Level</span>
+                <span class="text-white font-bold" id="iq-level">Beginner</span>
+            </div>
+            <div class="w-full bg-gray-700 rounded-full h-3">
+                <div class="progress-bar h-3 rounded-full transition-all duration-500" id="iq-progress" style="width: 0%"></div>
+            </div>
+            <div class="text-xs text-gray-300 mt-1" id="iq-text">Keep solving to increase your IQ level!</div>
+        </div>
+
+        <!-- Level Selection -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="level-card active rounded-xl p-4 text-center cursor-pointer" data-level="1">
+                <div class="text-white font-bold text-xl mb-2">Level 1</div>
+                <div class="text-white/80 text-sm mb-2">3×3 Grid</div>
+                <div class="text-white/60 text-xs">5 Minutes</div>
+                <i class="fas fa-lock-open text-white mt-2"></i>
+            </div>
+            
+            <div class="level-card rounded-xl p-4 text-center cursor-pointer opacity-50" data-level="2">
+                <div class="text-white font-bold text-xl mb-2">Level 2</div>
+                <div class="text-white/80 text-sm mb-2">4×4 Grid</div>
+                <div class="text-white/60 text-xs">10 Minutes</div>
+                <i class="fas fa-lock text-white mt-2"></i>
+            </div>
+            
+            <div class="level-card rounded-xl p-4 text-center cursor-pointer opacity-50" data-level="3">
+                <div class="text-white font-bold text-xl mb-2">Level 3</div>
+                <div class="text-white/80 text-sm mb-2">5×5 Grid</div>
+                <div class="text-white/60 text-xs">25 Minutes</div>
+                <i class="fas fa-lock text-white mt-2"></i>
+            </div>
+        </div>
+
+        <!-- Game Canvas -->
+        <div class="flex justify-center mb-8">
+            <canvas id="gameCanvas" class="game-canvas" width="400" height="400"></canvas>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="flex flex-wrap justify-center gap-4 mb-8">
+            <button id="shuffleBtn" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">
+                <i class="fas fa-random mr-2"></i>Shuffle
+            </button>
+            
+            <button id="resetBtn" class="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">
+                <i class="fas fa-redo mr-2"></i>Reset
+            </button>
+            
+            <button id="hintBtn" class="bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">
+                <i class="fas fa-lightbulb mr-2"></i>Hint
+            </button>
+            
+            <button id="resetProgressBtn" class="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">
+                <i class="fas fa-trash mr-2"></i>Reset Progress
+            </button>
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center">
+            <h3 class="text-xl font-bold text-white mb-4">How to Play</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-300">
+                <div>
+                    <i class="fas fa-mouse-pointer text-blue-400 text-2xl mb-2"></i>
+                    <p><strong>Desktop:</strong> Click on tiles to move them</p>
+                </div>
+                <div>
+                    <i class="fas fa-hand-pointer text-green-400 text-2xl mb-2"></i>
+                    <p><strong>Mobile:</strong> Touch tiles to move them</p>
+                </div>
+                <div>
+                    <i class="fas fa-keyboard text-yellow-400 text-2xl mb-2"></i>
+                    <p><strong>Keyboard:</strong> Use arrow keys to move tiles</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Victory Modal -->
+    <div id="victoryModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-8 m-4 max-w-md w-full text-center transform scale-95 transition-all duration-300">
+            <div class="text-6xl mb-4">🎉</div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-4">Congratulations!</h2>
+            <p class="text-gray-600 mb-6" id="victoryMessage">You completed the puzzle!</p>
+            <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
+                <div class="bg-gray-100 rounded-lg p-3">
+                    <div class="font-bold text-gray-800" id="finalTime">--:--</div>
+                    <div class="text-gray-600">Time</div>
+                </div>
+                <div class="bg-gray-100 rounded-lg p-3">
+                    <div class="font-bold text-gray-800" id="finalMoves">0</div>
+                    <div class="text-gray-600">Moves</div>
+                </div>
+            </div>
+            <button id="nextLevelBtn" class="bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-xl mr-2 hover:from-blue-600 hover:to-purple-600 transition-all duration-300">
+                Next Level
+            </button>
+            <button id="playAgainBtn" class="bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold py-3 px-6 rounded-xl hover:from-green-600 hover:to-teal-600 transition-all duration-300">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <script>
+        class NumberPuzzleGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.currentLevel = 1;
+                this.gridSize = 3;
+                this.tileSize = 0;
+                this.tiles = [];
+                this.emptyPos = { x: 2, y: 2 };
+                this.moves = 0;
+                this.timer = null;
+                this.timeLeft = 300; // 5 minutes for level 1
+                this.gameStarted = false;
+                this.iqProgress = 0;
+                this.completedLevels = [];
+                this.totalScore = 0;
+                
+                // Fixed level configuration with correct target sequences
+                this.levelConfig = {
+                    1: { 
+                        size: 3, 
+                        time: 300, 
+                        target: [1,2,3,4,5,6,7,8,0] // 3x3 grid: 1,2,3 / 4,5,6 / 7,8,empty
+                    },
+                    2: { 
+                        size: 4, 
+                        time: 600, 
+                        target: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0] // 4x4 grid
+                    },
+                    3: { 
+                        size: 5, 
+                        time: 1500, 
+                        target: Array.from({length: 24}, (_, i) => i + 1).concat([0]) // 5x5 grid
+                    }
+                };
+                
+                this.iqLevels = [
+                    { min: 0, max: 20, name: "Beginner", color: "#ff6b6b" },
+                    { min: 21, max: 50, name: "Amateur", color: "#feca57" },
+                    { min: 51, max: 100, name: "Intermediate", color: "#48dbfb" },
+                    { min: 101, max: 200, name: "Advanced", color: "#ff9ff3" },
+                    { min: 201, max: 500, name: "Expert", color: "#54a0ff" },
+                    { min: 501, max: Infinity, name: "Genius", color: "#5f27cd" }
+                ];
+                
+                // Load saved progress
+                this.loadProgress();
+                
+                this.initializeGame();
+                this.setupEventListeners();
+                this.resizeCanvas();
+            }
+            
+            // Save progress to localStorage
+            saveProgress() {
+                const gameData = {
+                    completedLevels: this.completedLevels,
+                    currentLevel: this.currentLevel,
+                    iqProgress: this.iqProgress,
+                    totalScore: this.totalScore,
+                    timestamp: Date.now()
+                };
+                
+                try {
+                    localStorage.setItem('numberPuzzleProgress', JSON.stringify(gameData));
+                    console.log('Progress saved:', gameData);
+                } catch (error) {
+                                      console.error('Failed to save progress:', error);
+                }
+            }
+            
+            // Load progress from localStorage
+            loadProgress() {
+                try {
+                    const savedData = localStorage.getItem('numberPuzzleProgress');
+                    if (savedData) {
+                        const gameData = JSON.parse(savedData);
+                        this.completedLevels = gameData.completedLevels || [];
+                        this.currentLevel = gameData.currentLevel || 1;
+                        this.iqProgress = gameData.iqProgress || 0;
+                        this.totalScore = gameData.totalScore || 0;
+                        
+                        console.log('Progress loaded:', gameData);
+                        this.showMessage('Progress restored!', 'success');
+                    } else {
+                        console.log('No saved progress found');
+                    }
+                } catch (error) {
+                    console.error('Failed to load progress:', error);
+                    // Reset to defaults if loading fails
+                    this.completedLevels = [];
+                    this.currentLevel = 1;
+                    this.iqProgress = 0;
+                    this.totalScore = 0;
+                }
+            }
+            
+            // Reset all progress
+            resetProgress() {
+                if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
+                    try {
+                        localStorage.removeItem('numberPuzzleProgress');
+                        this.completedLevels = [];
+                        this.currentLevel = 1;
+                        this.iqProgress = 0;
+                        this.totalScore = 0;
+                        
+                        // Reset UI
+                        this.updateLevelCards();
+                        this.updateIQDisplay();
+                        this.initializeGame();
+                        
+                        this.showMessage('Progress reset successfully!', 'success');
+                    } catch (error) {
+                        console.error('Failed to reset progress:', error);
+                        this.showMessage('Failed to reset progress', 'error');
+                    }
+                }
+            }
+            
+            initializeGame() {
+                this.gridSize = this.levelConfig[this.currentLevel].size;
+                this.timeLeft = this.levelConfig[this.currentLevel].time;
+                this.moves = 0;
+                this.gameStarted = false;
+                
+                this.calculateTileSize();
+                this.initializeTiles();
+                this.shuffleTiles();
+                this.updateDisplay();
+                this.updateLevelCards();
+                this.updateIQDisplay();
+                this.draw();
+            }
+            
+            calculateTileSize() {
+                const canvasSize = Math.min(this.canvas.width, this.canvas.height);
+                this.tileSize = (canvasSize - 20) / this.gridSize;
+            }
+            
+            initializeTiles() {
+                this.tiles = [];
+                const target = [...this.levelConfig[this.currentLevel].target];
+                
+                // Initialize tiles in solved state first
+                for (let y = 0; y < this.gridSize; y++) {
+                    this.tiles[y] = [];
+                    for (let x = 0; x < this.gridSize; x++) {
+                        const index = y * this.gridSize + x;
+                        this.tiles[y][x] = target[index];
+                        
+                        if (target[index] === 0) {
+                            this.emptyPos = { x, y };
+                        }
+                    }
+                }
+            }
+            
+            shuffleTiles() {
+                // Perform random valid moves to shuffle
+                for (let i = 0; i < 1000; i++) {
+                    const validMoves = this.getValidMoves();
+                    if (validMoves.length > 0) {
+                        const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                        this.moveTile(randomMove.x, randomMove.y, false);
+                    }
+                }
+                this.moves = 0;
+                this.updateDisplay();
+            }
+            
+            getValidMoves() {
+                const moves = [];
+                const directions = [
+                    { x: 0, y: -1 }, // Up
+                    { x: 0, y: 1 },  // Down
+                    { x: -1, y: 0 }, // Left
+                    { x: 1, y: 0 }   // Right
+                ];
+                
+                directions.forEach(dir => {
+                    const newX = this.emptyPos.x + dir.x;
+                    const newY = this.emptyPos.y + dir.y;
+                    
+                    if (newX >= 0 && newX < this.gridSize && newY >= 0 && newY < this.gridSize) {
+                        moves.push({ x: newX, y: newY });
+                    }
+                });
+                
+                return moves;
+            }
+            
+            moveTile(x, y, countMove = true) {
+                // Check if the tile is adjacent to empty space
+                const dx = Math.abs(x - this.emptyPos.x);
+                const dy = Math.abs(y - this.emptyPos.y);
+                
+                if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+                    // Swap tile with empty space
+                    this.tiles[this.emptyPos.y][this.emptyPos.x] = this.tiles[y][x];
+                    this.tiles[y][x] = 0;
+                    this.emptyPos = { x, y };
+                    
+                    if (countMove) {
+                        this.moves++;
+                        this.updateIQProgress();
+                        this.updateDisplay();
+                        
+                        if (!this.gameStarted) {
+                            this.startTimer();
+                            this.gameStarted = true;
+                        }
+                        
+                        if (this.checkWin()) {
+                            this.handleWin();
+                        }
+                    }
+                    
+                    this.draw();
+                    return true;
+                }
+                return false;
+            }
+            
+            checkWin() {
+                const target = this.levelConfig[this.currentLevel].target;
+                
+                // Check if current state matches target state
+                for (let y = 0; y < this.gridSize; y++) {
+                    for (let x = 0; x < this.gridSize; x++) {
+                        const index = y * this.gridSize + x;
+                        if (this.tiles[y][x] !== target[index]) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+            
+            handleWin() {
+                this.stopTimer();
+                const timeUsed = this.levelConfig[this.currentLevel].time - this.timeLeft;
+                const score = Math.max(1000 - this.moves * 10 - timeUsed, 100);
+                
+                // Update completed levels
+                if (!this.completedLevels.includes(this.currentLevel)) {
+                    this.completedLevels.push(this.currentLevel);
+                }
+                
+                // Update total score
+                this.totalScore += score;
+                
+                // Save progress immediately after winning
+                this.saveProgress();
+                
+                // Update level cards
+                this.updateLevelCards();
+                
+                // Show victory modal
+                this.showVictoryModal(timeUsed, score);
+            }
+            
+            showVictoryModal(timeUsed, score) {
+                const modal = document.getElementById('victoryModal');
+                const finalTime = document.getElementById('finalTime');
+                const finalMoves = document.getElementById('finalMoves');
+                const victoryMessage = document.getElementById('victoryMessage');
+                const nextLevelBtn = document.getElementById('nextLevelBtn');
+                
+                const minutes = Math.floor(timeUsed / 60);
+                const seconds = timeUsed % 60;
+                finalTime.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                finalMoves.textContent = this.moves;
+                
+                victoryMessage.textContent = `Level ${this.currentLevel} completed! Score: ${score} | Total: ${this.totalScore}`;
+                
+                // Hide next level button if it's the last level
+                if (this.currentLevel >= 3) {
+                    nextLevelBtn.style.display = 'none';
+                } else {
+                    nextLevelBtn.style.display = 'inline-block';
+                }
+                
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                
+                // Add animation
+                setTimeout(() => {
+                    modal.querySelector('div').style.transform = 'scale(1)';
+                }, 10);
+            }
+            
+            hideVictoryModal() {
+                const modal = document.getElementById('victoryModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                modal.querySelector('div').style.transform = 'scale(0.95)';
+            }
+            
+            startTimer() {
+                this.timer = setInterval(() => {
+                    this.timeLeft--;
+                    this.updateDisplay();
+                    
+                    if (this.timeLeft <= 0) {
+                        this.handleTimeUp();
+                    }
+                }, 1000);
+            }
+            
+            stopTimer() {
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                }
+            }
+            
+            handleTimeUp() {
+                this.stopTimer();
+                this.showMessage('Time\'s up! Try again.', 'error');
+                this.initializeGame();
+            }
+            
+            updateDisplay() {
+                // Update timer
+                const minutes = Math.floor(this.timeLeft / 60);
+                const seconds = this.timeLeft % 60;
+                document.getElementById('timer').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Update moves
+                document.getElementById('moves').textContent = this.moves;
+                
+                // Update score (dynamic scoring)
+                const baseScore = 1000;
+                const timeUsed = this.levelConfig[this.currentLevel].time - this.timeLeft;
+                const currentScore = Math.max(baseScore - this.moves * 10 - timeUsed, 0);
+                document.getElementById('score').textContent = currentScore;
+            }
+            
+            updateIQProgress() {
+                // Calculate IQ progress based on efficiency
+                const efficiency = Math.max(100 - this.moves, 0);
+                this.iqProgress = Math.min(this.iqProgress + efficiency / 10, 500);
+                
+                // Save progress when IQ updates
+                this.saveProgress();
+                
+                this.updateIQDisplay();
+            }
+            
+            updateIQDisplay() {
+                const progressBar = document.getElementById('iq-progress');
+                const iqLevelElement = document.getElementById('iq-level');
+                const iqText = document.getElementById('iq-text');
+                
+                // Find current IQ level
+                const currentIQLevel = this.iqLevels.find(level => 
+                    this.iqProgress >= level.min && this.iqProgress <= level.max
+                );
+                
+                const progressPercentage = Math.min((this.iqProgress / 500) * 100, 100);
+                progressBar.style.width = `${progressPercentage}%`;
+                iqLevelElement.textContent = currentIQLevel.name;
+                
+                const messages = [
+                    "Keep going! You're improving!",
+                    "Great progress! Your IQ is rising!",
+                    "Excellent! You're becoming a puzzle master!",
+                    "Outstanding! Your mind is sharp!",
+                    "Incredible! You're a true genius!"
+                ];
+                
+                const messageIndex = Math.min(Math.floor(this.iqProgress / 100), messages.length - 1);
+                iqText.textContent = messages[messageIndex];
+            }
+            
+            updateLevelCards() {
+                const levelCards = document.querySelectorAll('.level-card');
+                
+                levelCards.forEach((card, index) => {
+                    const level = index + 1;
+                    const lockIcon = card.querySelector('i');
+                    
+                    card.classList.remove('active', 'completed', 'opacity-50');
+                    
+                    if (this.completedLevels.includes(level)) {
+                        card.classList.add('completed');
+                        lockIcon.className = 'fas fa-check text-white mt-2';
+                    } else if (level === this.currentLevel) {
+                        card.classList.add('active');
+                        lockIcon.className = 'fas fa-lock-open text-white mt-2';
+                    } else if (level === 1 || this.completedLevels.includes(level - 1)) {
+                        // Level 1 is always unlocked, other levels unlock when previous is completed
+                        lockIcon.className = 'fas fa-lock-open text-white mt-2';
+                    } else {
+                        card.classList.add('opacity-50');
+                        lockIcon.className = 'fas fa-lock text-white mt-2';
+                    }
+                });
+            }
+            
+            draw() {
+                // Clear canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw background
+                const gradient = this.ctx.createLinearGradient(0, 0, this.canvas.width, this.canvas.height);
+                gradient.addColorStop(0, '#667eea');
+                gradient.addColorStop(1, '#764ba2');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw tiles
+                for (let y = 0; y < this.gridSize; y++) {
+                    for (let x = 0; x < this.gridSize; x++) {
+                        this.drawTile(x, y, this.tiles[y][x]);
+                    }
+                }
+            }
+            
+            drawTile(x, y, number) {
+                const startX = 10 + x * this.tileSize;
+                const startY = 10 + y * this.tileSize;
+                const size = this.tileSize - 4;
+                
+                if (number === 0) {
+                    // Empty tile
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                    this.ctx.fillRect(startX, startY, size, size);
+                    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(startX, startY, size, size);
+                    return;
+                }
+                
+                // Create gradient for tile
+                const tileGradient = this.ctx.createLinearGradient(startX, startY, startX + size, startY + size);
+                tileGradient.addColorStop(0, '#ffffff');
+                tileGradient.addColorStop(1, '#f0f0f0');
+                
+                // Draw tile background
+                this.ctx.fillStyle = tileGradient;
+                this.ctx.fillRect(startX, startY, size, size);
+                
+                // Draw tile border
+                this.ctx.strokeStyle = '#ddd';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(startX, startY, size, size);
+                
+                // Draw number
+                this.ctx.fillStyle = '#333';
+                                this.ctx.font = `bold ${size * 0.4}px Poppins`;
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(
+                    number.toString(),
+                    startX + size / 2,
+                    startY + size / 2
+                );
+                
+                // Reset shadow
+                this.ctx.shadowColor = 'transparent';
+                this.ctx.shadowBlur = 0;
+                this.ctx.shadowOffsetX = 0;
+                this.ctx.shadowOffsetY = 0;
+            }
+            
+            getTileFromPosition(clientX, clientY) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = clientX - rect.left;
+                const y = clientY - rect.top;
+                
+                // Scale coordinates if canvas is resized
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+                
+                const scaledX = x * scaleX;
+                const scaledY = y * scaleY;
+                
+                const tileX = Math.floor((scaledX - 10) / this.tileSize);
+                const tileY = Math.floor((scaledY - 10) / this.tileSize);
+                
+                if (tileX >= 0 && tileX < this.gridSize && tileY >= 0 && tileY < this.gridSize) {
+                    return { x: tileX, y: tileY };
+                }
+                return null;
+            }
+            
+            resizeCanvas() {
+                const container = this.canvas.parentElement;
+                const size = Math.min(container.clientWidth - 40, 500);
+                this.canvas.width = size;
+                this.canvas.height = size;
+                this.calculateTileSize();
+                this.draw();
+            }
+            
+            setupEventListeners() {
+                // Canvas click/touch events
+                this.canvas.addEventListener('click', (e) => {
+                    const tile = this.getTileFromPosition(e.clientX, e.clientY);
+                    if (tile) {
+                        this.moveTile(tile.x, tile.y);
+                    }
+                });
+                
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const tile = this.getTileFromPosition(touch.clientX, touch.clientY);
+                    if (tile) {
+                        this.moveTile(tile.x, tile.y);
+                    }
+                });
+                
+                // Keyboard controls
+                document.addEventListener('keydown', (e) => {
+                    if (!this.gameStarted && e.key.startsWith('Arrow')) {
+                        this.startTimer();
+                        this.gameStarted = true;
+                    }
+                    
+                    let moveX = this.emptyPos.x;
+                    let moveY = this.emptyPos.y;
+                    
+                    switch(e.key) {
+                        case 'ArrowUp':
+                            moveY = Math.min(this.gridSize - 1, this.emptyPos.y + 1);
+                            break;
+                        case 'ArrowDown':
+                            moveY = Math.max(0, this.emptyPos.y - 1);
+                            break;
+                        case 'ArrowLeft':
+                            moveX = Math.min(this.gridSize - 1, this.emptyPos.x + 1);
+                            break;
+                        case 'ArrowRight':
+                            moveX = Math.max(0, this.emptyPos.x - 1);
+                            break;
+                    }
+                    
+                    if (moveX !== this.emptyPos.x || moveY !== this.emptyPos.y) {
+                        this.moveTile(moveX, moveY);
+                        e.preventDefault();
+                    }
+                });
+                
+                // Button events
+                document.getElementById('shuffleBtn').addEventListener('click', () => {
+                    this.shuffleTiles();
+                    this.stopTimer();
+                    this.gameStarted = false;
+                });
+                
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.initializeGame();
+                    this.stopTimer();
+                });
+                
+                document.getElementById('hintBtn').addEventListener('click', () => {
+                    this.showHint();
+                });
+                
+                // Reset Progress Button
+                document.getElementById('resetProgressBtn').addEventListener('click', () => {
+                    this.resetProgress();
+                });
+                
+                // Level selection
+                document.querySelectorAll('.level-card').forEach((card, index) => {
+                    card.addEventListener('click', () => {
+                        const level = index + 1;
+                        if (level === 1 || this.completedLevels.includes(level - 1)) {
+                            this.selectLevel(level);
+                        } else {
+                            this.showMessage('Complete the previous level first!', 'warning');
+                        }
+                    });
+                });
+                
+                // Victory modal buttons
+                document.getElementById('nextLevelBtn').addEventListener('click', () => {
+                    this.hideVictoryModal();
+                    if (this.currentLevel < 3) {
+                        this.selectLevel(this.currentLevel + 1);
+                    }
+                });
+                
+                document.getElementById('playAgainBtn').addEventListener('click', () => {
+                    this.hideVictoryModal();
+                    this.initializeGame();
+                });
+                
+                // Window resize
+                window.addEventListener('resize', () => {
+                    this.resizeCanvas();
+                });
+                
+                // Prevent context menu on canvas
+                this.canvas.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                });
+                
+                // Auto-save progress periodically
+                setInterval(() => {
+                    this.saveProgress();
+                }, 30000); // Save every 30 seconds
+            }
+            
+            selectLevel(level) {
+                if (level === this.currentLevel) return;
+                
+                // Check if level is unlocked
+                if (level > 1 && !this.completedLevels.includes(level - 1)) {
+                    this.showMessage('Complete the previous level first!', 'warning');
+                    return;
+                }
+                
+                this.stopTimer();
+                this.currentLevel = level;
+                
+                // Save progress when changing levels
+                this.saveProgress();
+                
+                this.initializeGame();
+                this.updateLevelCards();
+                
+                // Update active level card
+                document.querySelectorAll('.level-card').forEach((card, index) => {
+                    card.classList.remove('active');
+                    if (index + 1 === level) {
+                        card.classList.add('active');
+                    }
+                });
+                
+                this.showMessage(`Level ${level} selected!`, 'info');
+            }
+            
+            showHint() {
+                // Find the next correct move
+                const target = this.levelConfig[this.currentLevel].target;
+                let hintFound = false;
+                
+                // Check each position to find the first incorrect tile that can be moved
+                for (let y = 0; y < this.gridSize && !hintFound; y++) {
+                    for (let x = 0; x < this.gridSize && !hintFound; x++) {
+                        const index = y * this.gridSize + x;
+                        const currentValue = this.tiles[y][x];
+                        const targetValue = target[index];
+                        
+                        if (currentValue !== targetValue && currentValue !== 0) {
+                            // Check if this tile can be moved (adjacent to empty space)
+                            const dx = Math.abs(x - this.emptyPos.x);
+                            const dy = Math.abs(y - this.emptyPos.y);
+                            
+                            if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+                                this.highlightTile(x, y);
+                                hintFound = true;
+                                this.showMessage(`Move tile ${currentValue} to get closer to the solution!`, 'info');
+                            }
+                        }
+                    }
+                }
+                
+                if (!hintFound) {
+                    this.showMessage('Try moving tiles adjacent to the empty space!', 'info');
+                }
+            }
+            
+            highlightTile(x, y) {
+                const startX = 10 + x * this.tileSize;
+                const startY = 10 + y * this.tileSize;
+                const size = this.tileSize - 4;
+                
+                // Draw highlight effect
+                this.ctx.strokeStyle = '#ffff00';
+                this.ctx.lineWidth = 4;
+                this.ctx.strokeRect(startX - 2, startY - 2, size + 4, size + 4);
+                
+                // Remove highlight after 2 seconds
+                setTimeout(() => {
+                    this.draw();
+                }, 2000);
+            }
+            
+            showMessage(message, type = 'info') {
+                // Create toast notification
+                const toast = document.createElement('div');
+                toast.className = `fixed top-4 right-4 p-4 rounded-lg text-white font-semibold z-50 transform translate-x-full transition-transform duration-300`;
+                
+                switch(type) {
+                    case 'success':
+                        toast.classList.add('bg-green-500');
+                        break;
+                    case 'warning':
+                        toast.classList.add('bg-yellow-500');
+                        break;
+                    case 'error':
+                        toast.classList.add('bg-red-500');
+                        break;
+                    default:
+                        toast.classList.add('bg-blue-500');
+                }
+                
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                
+                // Animate in
+                setTimeout(() => {
+                    toast.style.transform = 'translateX(0)';
+                }, 10);
+                
+                // Animate out and remove
+                setTimeout(() => {
+                    toast.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        if (document.body.contains(toast)) {
+                            document.body.removeChild(toast);
+                        }
+                    }, 300);
+                }, 3000);
+            }
+        }
+        
+        // Initialize game when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const game = new NumberPuzzleGame();
+            
+            // Add some initial animations
+            const levelCards = document.querySelectorAll('.level-card');
+            levelCards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+            
+            // Add pulse animation to active elements
+            setInterval(() => {
+                const activeCard = document.querySelector('.level-card.active');
+                if (activeCard) {
+                    activeCard.style.animation = 'pulse 1s ease-in-out';
+                    setTimeout(() => {
+                        activeCard.style.animation = '';
+                    }, 1000);
+                }
+            }, 5000);
+            
+            // Add particle effect for celebrations
+            function createParticles() {
+                const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7'];
+                const particles = [];
+                
+                for (let i = 0; i < 50; i++) {
+                    const particle = document.createElement('div');
+                    particle.style.position = 'fixed';
+                    particle.style.width = '10px';
+                    particle.style.height = '10px';
+                    particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    particle.style.borderRadius = '50%';
+                    particle.style.pointerEvents = 'none';
+                    particle.style.zIndex = '1000';
+                    particle.style.left = Math.random() * window.innerWidth + 'px';
+                    particle.style.top = '-10px';
+                    
+                    document.body.appendChild(particle);
+                    particles.push(particle);
+                    
+                    // Animate particle
+                    const animation = particle.animate([
+                        { transform: 'translateY(0) rotate(0deg)', opacity: 1 },
+                        { transform: `translateY(${window.innerHeight + 20}px) rotate(360deg)`, opacity: 0 }
+                    ], {
+                        duration: Math.random() * 3000 + 2000,
+                        easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+                    });
+                    
+                    animation.onfinish = () => {
+                        if (document.body.contains(particle)) {
+                            document.body.removeChild(particle);
+                        }
+                    };
+                }
+            }
+            
+            // Trigger particles on level completion
+            const originalHandleWin = game.handleWin;
+            game.handleWin = function() {
+                createParticles();
+                originalHandleWin.call(this);
+            };
+            
+            // Add sound effects (optional - you can add actual sound files)
+            const playSound = (type) => {
+                // You can add actual sound files here
+                console.log(`Playing ${type} sound`);
+            };
+            
+            // Add sound to tile moves
+            const originalMoveTile = game.moveTile;
+            game.moveTile = function(x, y, countMove = true) {
+                const moved = originalMoveTile.call(this, x, y, countMove);
+                if (moved && countMove) {
+                    playSound('move');
+                }
+                return moved;
+            };
+            
+            // Add keyboard shortcuts info
+            document.addEventListener('keydown', (e) => {
+                if (e.key === '?') {
+                    game.showMessage('Use arrow keys to move tiles, Space to shuffle, R to reset, H for hint', 'info');
+                }
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    document.getElementById('shuffleBtn').click();
+                }
+                if (e.key.toLowerCase() === 'r') {
+                    document.getElementById('resetBtn').click();
+                }
+                if (e.key.toLowerCase() === 'h') {
+                    document.getElementById('hintBtn').click();
+                }
+            });
+            
+            // Add swipe gestures for mobile
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            game.canvas.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            });
+            
+            game.canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault(); // Prevent scrolling
+            });
+            
+            game.canvas.addEventListener('touchend', (e) => {
+                if (!touchStartX || !touchStartY) return;
+                
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                
+                const diffX = touchStartX - touchEndX;
+                const diffY = touchStartY - touchEndY;
+                
+                const minSwipeDistance = 50;
+                                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    // Horizontal swipe
+                    if (Math.abs(diffX) > minSwipeDistance) {
+                        if (diffX > 0) {
+                            // Swipe left - move empty space right
+                            const newX = Math.min(game.gridSize - 1, game.emptyPos.x + 1);
+                            game.moveTile(newX, game.emptyPos.y);
+                        } else {
+                            // Swipe right - move empty space left
+                            const newX = Math.max(0, game.emptyPos.x - 1);
+                            game.moveTile(newX, game.emptyPos.y);
+                        }
+                    }
+                } else {
+                    // Vertical swipe
+                    if (Math.abs(diffY) > minSwipeDistance) {
+                        if (diffY > 0) {
+                            // Swipe up - move empty space down
+                            const newY = Math.min(game.gridSize - 1, game.emptyPos.y + 1);
+                            game.moveTile(game.emptyPos.x, newY);
+                        } else {
+                            // Swipe down - move empty space up
+                            const newY = Math.max(0, game.emptyPos.y - 1);
+                            game.moveTile(game.emptyPos.x, newY);
+                        }
+                    }
+                }
+                
+                touchStartX = 0;
+                touchStartY = 0;
+            });
+            
+            // Show welcome message with saved progress info
+            setTimeout(() => {
+                if (game.completedLevels.length > 0) {
+                    game.showMessage(`Welcome back! You've completed ${game.completedLevels.length} level(s)`, 'success');
+                } else {
+                    game.showMessage('Welcome to Number Puzzle! Complete levels to unlock new challenges!', 'info');
+                }
+            }, 1000);
+            
+            // Add visibility change handler to save progress when tab becomes hidden
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    game.saveProgress();
+                }
+            });
+            
+            // Save progress before page unload
+            window.addEventListener('beforeunload', () => {
+                game.saveProgress();
+            });
+            
+            // Add performance monitoring
+            let lastFrameTime = performance.now();
+            function checkPerformance() {
+                const currentTime = performance.now();
+                const deltaTime = currentTime - lastFrameTime;
+                
+                if (deltaTime > 100) { // If frame took longer than 100ms
+                    console.warn('Performance warning: Frame took', deltaTime, 'ms');
+                }
+                
+                lastFrameTime = currentTime;
+                requestAnimationFrame(checkPerformance);
+            }
+            
+            // Start performance monitoring in development
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                checkPerformance();
+            }
+            
+            // Add error handling for localStorage
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'numberPuzzleProgress') {
+                    // Another tab updated the progress, reload it
+                    game.loadProgress();
+                    game.updateLevelCards();
+                    game.updateIQDisplay();
+                    game.showMessage('Progress synced from another tab!', 'info');
+                }
+            });
+            
+            // Add service worker registration for offline support (optional)
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then((registration) => {
+                            console.log('SW registered: ', registration);
+                        })
+                        .catch((registrationError) => {
+                            console.log('SW registration failed: ', registrationError);
+                        });
+                });
+            }
+            
+            // Add analytics tracking (optional)
+            function trackEvent(eventName, eventData) {
+                // You can integrate with Google Analytics, Mixpanel, etc.
+                console.log('Event:', eventName, eventData);
+            }
+            
+            // Track level completions
+            const originalHandleWinForTracking = game.handleWin;
+            game.handleWin = function() {
+                trackEvent('level_completed', {
+                    level: this.currentLevel,
+                    moves: this.moves,
+                    timeUsed: this.levelConfig[this.currentLevel].time - this.timeLeft
+                });
+                originalHandleWinForTracking.call(this);
+            };
+            
+            // Add accessibility improvements
+            document.addEventListener('keydown', (e) => {
+                // Add focus management for keyboard users
+                if (e.key === 'Tab') {
+                    // Ensure proper tab order
+                    const focusableElements = document.querySelectorAll(
+                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                    );
+                    
+                    if (focusableElements.length > 0) {
+                        const firstElement = focusableElements[0];
+                        const lastElement = focusableElements[focusableElements.length - 1];
+                        
+                        if (e.shiftKey && document.activeElement === firstElement) {
+                            e.preventDefault();
+                            lastElement.focus();
+                        } else if (!e.shiftKey && document.activeElement === lastElement) {
+                            e.preventDefault();
+                            firstElement.focus();
+                        }
+                    }
+                }
+                
+                // Escape key to close modals
+                if (e.key === 'Escape') {
+                    const modal = document.getElementById('victoryModal');
+                    if (!modal.classList.contains('hidden')) {
+                        game.hideVictoryModal();
+                    }
+                }
+            });
+            
+            // Add screen reader announcements
+            function announceToScreenReader(message) {
+                const announcement = document.createElement('div');
+                announcement.setAttribute('aria-live', 'polite');
+                announcement.setAttribute('aria-atomic', 'true');
+                announcement.style.position = 'absolute';
+                announcement.style.left = '-10000px';
+                announcement.style.width = '1px';
+                announcement.style.height = '1px';
+                announcement.style.overflow = 'hidden';
+                announcement.textContent = message;
+                
+                document.body.appendChild(announcement);
+                
+                setTimeout(() => {
+                    document.body.removeChild(announcement);
+                }, 1000);
+            }
+            
+            // Announce game state changes
+            const originalMoveTileForA11y = game.moveTile;
+            game.moveTile = function(x, y, countMove = true) {
+                const moved = originalMoveTileForA11y.call(this, x, y, countMove);
+                if (moved && countMove) {
+                    announceToScreenReader(`Moved tile to position ${x + 1}, ${y + 1}. ${this.moves} moves made.`);
+                }
+                return moved;
+            };
+            
+            // Add touch feedback for mobile
+            if ('vibrate' in navigator) {
+                const originalMoveTileForVibration = game.moveTile;
+                game.moveTile = function(x, y, countMove = true) {
+                    const moved = originalMoveTileForVibration.call(this, x, y, countMove);
+                    if (moved && countMove) {
+                        navigator.vibrate(50); // Short vibration feedback
+                    }
+                    return moved;
+                };
+            }
+            
+            // Add dark mode support (optional)
+            function toggleDarkMode() {
+                document.body.classList.toggle('dark-mode');
+                localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+            }
+            
+            // Load dark mode preference
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+            }
+            
+            // Add resize observer for better responsive handling
+            if ('ResizeObserver' in window) {
+                const resizeObserver = new ResizeObserver(entries => {
+                    for (let entry of entries) {
+                        if (entry.target === game.canvas.parentElement) {
+                            game.resizeCanvas();
+                        }
+                    }
+                });
+                
+                resizeObserver.observe(game.canvas.parentElement);
+            }
+            
+            // Add connection status monitoring
+            function updateConnectionStatus() {
+                if (navigator.onLine) {
+                    game.showMessage('Connection restored', 'success');
+                } else {
+                    game.showMessage('Playing offline - progress will sync when connection returns', 'warning');
+                }
+            }
+            
+            window.addEventListener('online', updateConnectionStatus);
+            window.addEventListener('offline', updateConnectionStatus);
+            
+            // Add PWA install prompt
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                
+                // Show install button or banner
+                const installButton = document.createElement('button');
+                installButton.textContent = 'Install App';
+                installButton.className = 'fixed bottom-4 left-4 bg-blue-500 text-white px-4 py-2 rounded-lg z-50';
+                installButton.onclick = async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        console.log(`User response to the install prompt: ${outcome}`);
+                        deferredPrompt = null;
+                        document.body.removeChild(installButton);
+                    }
+                };
+                
+                document.body.appendChild(installButton);
+                
+                // Auto-hide after 10 seconds
+                setTimeout(() => {
+                    if (document.body.contains(installButton)) {
+                        document.body.removeChild(installButton);
+                    }
+                }, 10000);
+            });
+        });
+    </script>
+</body>
+</html>
